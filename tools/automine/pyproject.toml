@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "automine"
+version = "0.1.0"
+description = "Transparent, open-source miner setup tool: hardware scan, OS tweaks (huge pages), XMRig management"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+automine = "automine.cli:main"
+
+[tool.setuptools]
+packages = ["automine"]
