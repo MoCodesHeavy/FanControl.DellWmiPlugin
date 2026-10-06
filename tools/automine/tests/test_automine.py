@@ -17,10 +17,31 @@ class WalletTests(unittest.TestCase):
         self.assertTrue(config.valid_wallet("BTC", "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"))
         self.assertFalse(config.valid_wallet("DOGE", "x"))
 
+    def test_multi_coin(self):
+        ok = {
+            "ETC": "0x" + "a1" * 20,
+            "RVN": "R" + "A" * 33,
+            "ERG": "9" + "A" * 50,
+            "KAS": "kaspa:q" + "a" * 60,
+        }
+        for coin, addr in ok.items():
+            self.assertTrue(config.valid_wallet(coin, addr), coin)
+        # an address for one coin must not pass as another
+        self.assertFalse(config.valid_wallet("XMR", ok["ETC"]))
+        self.assertFalse(config.valid_wallet("ETC", XMR))
+        self.assertIsNotNone(config.Config(wallets={"ETC": XMR}).validate())
+        self.assertIsNone(config.Config(wallets={"XMR": XMR, "ETC": ok["ETC"]}).validate())
+
+    def test_migrates_v01_config(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "c.json"
+            p.write_text('{"coin": "XMR", "wallet": "%s", "worker": "w"}' % XMR)
+            self.assertEqual(config.load(p).wallets, {"XMR": XMR})
+
     def test_roundtrip(self):
         with tempfile.TemporaryDirectory() as td:
             p = Path(td) / "c.json"
-            c = config.Config(wallet=XMR, worker="w")
+            c = config.Config(wallets={"XMR": XMR}, worker="w")
             config.save(c, p)
             self.assertEqual(config.load(p), c)
 
@@ -71,7 +92,7 @@ class MinerTests(unittest.TestCase):
             self.assertEqual(miners.sha256_of(p), hashlib.sha256(b"hello").hexdigest())
 
     def test_build_config(self):
-        c = miners.build_config(config.Config(wallet=XMR, worker="rig1", max_threads_percent=50))
+        c = miners.build_config(config.Config(wallets={"XMR": XMR}, worker="rig1", max_threads_percent=50))
         self.assertEqual(c["pools"][0]["user"], XMR)
         self.assertEqual(c["pools"][0]["pass"], "rig1")
         self.assertEqual(c["cpu"]["max-threads-hint"], 50)

@@ -122,7 +122,7 @@ def build_config(cfg: Config, huge_pages: bool = True) -> dict:
         "http": {"enabled": True, "host": "127.0.0.1", "port": API_PORT, "access-token": None, "restricted": True},
         "pools": [{
             "url": cfg.pool,
-            "user": cfg.wallet,
+            "user": cfg.wallets["XMR"],
             "pass": cfg.worker or "automine",
             "tls": cfg.tls,
             "keepalive": True,
@@ -140,7 +140,8 @@ def summary() -> Optional[dict]:
 def run(cfg: Config, binary: Path, log: Callable[[str], None] = print) -> int:
     conf_path = binary.parent / "automine-config.json"
     conf_path.write_text(json.dumps(build_config(cfg), indent=2))
-    log(f"Starting {binary} (Ctrl+C to stop). Mining {cfg.coin} to {cfg.wallet[:6]}...{cfg.wallet[-4:]} on {cfg.pool}")
+    w = cfg.wallets["XMR"]
+    log(f"Starting {binary} (Ctrl+C to stop). Mining XMR to {w[:6]}...{w[-4:]} on {cfg.pool}")
     proc = subprocess.Popen([str(binary), "--config", str(conf_path)])
     try:
         return proc.wait()

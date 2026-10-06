@@ -38,26 +38,44 @@ def cmd_scan(args) -> int:
     return 0
 
 
+def _ask_wallet(coin: str) -> str:
+    while True:
+        addr = input(f"{coin} wallet address (blank to skip): ").strip()
+        if not addr or config.valid_wallet(coin, addr):
+            return addr
+        print(f"That doesn't look like a valid {coin} address. Check you copied the whole thing and picked the right coin.")
+
+
 def cmd_setup(args) -> int:
     cfg = config.load() or config.Config()
-    print("automine setup. Nothing is sent anywhere except your wallet address as the pool username.")
-    while True:
-        wallet = args.wallet or input("Monero (XMR) wallet address: ").strip()
-        cfg.wallet = wallet
-        if config.valid_wallet("XMR", wallet):
-            break
-        print("That doesn't look like a valid Monero address (95 characters, starts with 4 or 8). Try again.")
-        if args.wallet:
-            return 1
+    print("automine setup. Wallet addresses are stored locally and sent only to your chosen pool as the username.")
+    if args.wallet:  # non-interactive: --wallet COIN=ADDRESS (repeatable)
+        for item in args.wallet:
+            coin, _, addr = item.partition("=")
+            if not config.valid_wallet(coin, addr):
+                print(f"'{addr}' is not a valid {coin.upper()} address (supported: {', '.join(config.COINS)})")
+                return 1
+            cfg.wallets[coin.upper()] = addr.strip()
+    else:
+        for coin in config.COINS:
+            addr = _ask_wallet(coin)
+            if addr:
+                cfg.wallets[coin] = addr
     cfg.pool = args.pool or cfg.pool
     cfg.worker = args.worker or cfg.worker or hardware.platform.node()[:32]
-    if args.max_threads:
+    if args.max_compute:
+        cfg.max_threads_percent = 100
+    elif args.max_threads:
         cfg.max_threads_percent = args.max_threads
     err = cfg.validate()
     if err:
         print(err)
         return 1
-    print(f"Saved to {config.save(cfg)}")
+    print(f"Saved to {config.save(cfg)} (wallets: {', '.join(cfg.wallets)})")
+    if cfg.max_threads_percent == 100:
+        print("Max compute: all CPU threads. Expect high temperatures and a sluggish machine; fine for a desktop, watch laptops.")
+    if "XMR" not in cfg.wallets:
+        print("Note: only Monero (CPU) can be mined by this version, and no XMR wallet is set.")
     print("Next: 'automine scan', then 'automine tweak' (as admin), 'automine install', 'automine start'.")
     return 0
 
@@ -95,6 +113,9 @@ def cmd_start(args) -> int:
     if err:
         print(err)
         return 1
+    if "XMR" not in cfg.wallets:
+        print("No XMR wallet set. This version only mines Monero; run 'automine setup --wallet XMR=<address>'.")
+        return 1
     binary = miners.find_binary()
     if not binary:
         print("XMRig not installed. Run 'automine install' first.")
@@ -120,7 +141,8 @@ def main(argv=None) -> int:
     s.set_defaults(fn=cmd_scan)
 
     s = sub.add_parser("setup", help="save wallet and settings")
-    s.add_argument("--wallet")
+    s.add_argument("--wallet", action="append", metavar="COIN=ADDRESS", help="repeatable, e.g. --wallet XMR=4... --wallet ETC=0x...")
+    s.add_argument("--max-compute", action="store_true", help="use 100%% of CPU threads")
     s.add_argument("--pool")
     s.add_argument("--worker")
     s.add_argument("--max-threads", type=int, help="percent of CPU threads to use (10-100)")

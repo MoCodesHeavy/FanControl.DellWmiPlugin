@@ -14,7 +14,8 @@ pip install .          # or: pipx install .
 
 ```
 automine scan                 # detect CPU/RAM/GPU and show tweak status
-automine setup                # asks for your XMR wallet, saves it locally
+automine setup                # asks for a wallet per coin (XMR, BTC, ETC, RVN, VRSC, ERG, KAS); blank skips
+automine setup --wallet XMR=4... --wallet ETC=0x... --max-compute   # non-interactive, all CPU threads
 sudo automine tweak           # dry run: shows what would change
 sudo automine tweak --apply   # huge pages (Linux), 'Lock pages in memory' (Windows; run as Administrator)
 sudo automine tweak --revert
